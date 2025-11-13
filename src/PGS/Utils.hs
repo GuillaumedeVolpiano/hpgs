@@ -2,7 +2,11 @@
 module PGS.Utils (
                    parsePGS
                  , serialisePGS
-                 , shiftPGS)
+                 , shiftPGS
+                 , shiftDisplaySetBy
+                 , intToWord8N
+                 , serialiseHeader
+                 , shiftHeaderBy)
 where
 
 import           Control.Monad        (unless, void)

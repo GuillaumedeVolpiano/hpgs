@@ -23,9 +23,9 @@ common warnings
 library
   import:           warnings
   exposed-modules:
+    PGS.Constants
     PGS.Types
     PGS.Utils
-    PGS.Constants
 
   -- other-modules:
   -- other-extensions:
@@ -41,14 +41,36 @@ library
 executable hpgs
   import:           warnings
   main-is:          Main.hs
+  other-modules:    Types
 
-  other-modules: Types
   -- other-extensions:
   build-depends:
-    , base           ^>=4.21.0.0
+    , base                  ^>=4.21.0.0
     , hpgs
-    , optparse-applicative ^>=0.18.1.0
-    , streamly-core  ^>=0.3.0
+    , optparse-applicative  ^>=0.18.1.0
+    , streamly-core         ^>=0.3.0
 
   hs-source-dirs:   app
+  default-language: Haskell2010
+
+test-suite hpgs-tests
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:          Tests.hs
+  other-modules:
+    PGSTests.ParseSerialiseRoundtrip
+    PGSTests.SerialiseTests
+    PGSTests.ShiftTests
+    PGSTests.GoldenTests
+    PGSTests.Expected
+
+  build-depends:
+    , base         ^>=4.21.0.0
+    , containers   ^>=0.7
+    , hpgs
+    , tasty        ^>=1.4.3
+    , tasty-hunit  ^>=0.10.2
+    , streamly-core ^>=0.3.0
+
+  ghc-options:      -Wall
   default-language: Haskell2010
