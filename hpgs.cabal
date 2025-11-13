@@ -1,0 +1,54 @@
+cabal-version:   3.0
+name:            hpgs
+version:         0.1.0.0
+synopsis:        A tool to manipulate PGS subtitle files
+
+-- description:
+homepage:        https://github.com/GuillaumedeVolpiano/hpgs
+license:         BSD-3-Clause
+license-file:    LICENSE
+author:          GuillaumedeVolpiano
+maintainer:      xavier@wheredoibegin.fr
+
+-- copyright:
+category:        Graphics
+build-type:      Simple
+extra-doc-files: CHANGELOG.md
+
+-- extra-source-files:
+
+common warnings
+  ghc-options: -Wall
+
+library
+  import:           warnings
+  exposed-modules:
+    PGS.Types
+    PGS.Utils
+    PGS.Constants
+
+  -- other-modules:
+  -- other-extensions:
+  build-depends:
+    , base           ^>=4.21.0.0
+    , bytestring     ^>=0.12.2.0
+    , containers     ^>=0.7
+    , streamly-core  ^>=0.3.0
+
+  hs-source-dirs:   src
+  default-language: Haskell2010
+
+executable hpgs
+  import:           warnings
+  main-is:          Main.hs
+
+  other-modules: Types
+  -- other-extensions:
+  build-depends:
+    , base           ^>=4.21.0.0
+    , hpgs
+    , optparse-applicative ^>=0.18.1.0
+    , streamly-core  ^>=0.3.0
+
+  hs-source-dirs:   app
+  default-language: Haskell2010
