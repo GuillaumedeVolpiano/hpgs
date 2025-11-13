@@ -1,4 +1,4 @@
-{-# LANGUAGE TupleSections #-}
+
 module PGS.Utils (
                    parsePGS
                  , serialisePGS
@@ -6,22 +6,22 @@ module PGS.Utils (
 where
 
 import           Control.Monad        (unless, void)
-import           Data.Bits            (shiftL, (.|.), (.&.), shiftR)
+import           Data.Bits            (shiftL, shiftR, (.&.), (.|.))
+import qualified Data.List            as L (unfoldr)
 import           Data.Sequence        (Seq ((:<|), (:|>)), ViewL (EmptyL, (:<)),
                                        singleton, viewl, (><))
 import qualified Data.Sequence        as Sq (drop, null, splitAt)
 import           Data.Word            (Word8)
+import           PGS.Constants        (endPGPack)
 import           PGS.Types            (DisplaySet, PGHeader (PGHeader),
-                                       PGPack (PGPack), PGS, header, pts,
-                                       segSize, segType, segments, dts)
+                                       PGPack (PGPack), PGS, dts, header, pts,
+                                       segSize, segType, segments)
 import qualified Streamly.Data.Fold   as SF (foldl', foldr', toList)
 import           Streamly.Data.Fold   (Fold)
 import           Streamly.Data.Parser (Parser, many, manyTill, one, satisfy,
                                        takeEQ)
-import qualified Data.List as L (unfoldr)
-import Streamly.Data.Unfold (Unfold, lmap, unfoldEach)
 import qualified Streamly.Data.Unfold as U (fromList, unfoldr)
-import PGS.Constants (endPGPack)
+import           Streamly.Data.Unfold (Unfold, lmap, unfoldEach)
 
 parsePGS :: Monad m => Parser Word8 m PGS
 parsePGS = Sq.drop 1 <$> many parseDisplaySet toSets
@@ -48,7 +48,7 @@ foldToInt = SF.foldl' (\b a -> (b `shiftL` 8) .|. fromIntegral a ) 0
 parseDisplaySet :: Monad m => Parser Word8 m DisplaySet
 parseDisplaySet = manyTill parsePack end toSeq
   where
-    toSeq = SF.foldr' (:<|) mempty 
+    toSeq = SF.foldr' (:<|) mempty
 
 end :: Monad m => Parser Word8 m ()
 end = parseHeader >>= \h -> unless (segType h == 0x80) $ fail "not an End segment"
@@ -61,36 +61,36 @@ toSets = SF.foldr' groupSets . singleton $ []
                         (h :< r) -> if any ((== 0x15) . segType . header) ds then mempty :<| (ds : h) :<| r
                                                                                else (ds : h) :<| r
 
-shiftPGS :: [(Int, Int)] -> PGS -> PGS
-shiftPGS shifts pgs = snd . foldl' shiftSeq (pgs, mempty) $ shifts
+shiftPGS :: Rational -> [(Int, Int)] -> PGS -> PGS
+shiftPGS ratio shifts pgs = snd . foldl' shiftSeq (pgs, mempty) $ shifts
   where
     shiftSeq (sq, acc) (size, ms)
       | Sq.null sq = error ("All subtitles are not covered by shifts\n" ++ show sq)
       | otherwise = (sq', acc')
       where
         (cur, sq') = Sq.splitAt size sq
-        shifted = fmap (map (shiftDisplaySetBy ms)) cur
+        shifted = fmap (map (shiftDisplaySetBy ratio ms)) cur
         acc' = acc >< shifted
 
-shiftDisplaySetBy :: Int -> DisplaySet -> DisplaySet
-shiftDisplaySetBy ms = fmap (shiftPackBy ms)
+shiftDisplaySetBy :: Rational -> Int -> DisplaySet -> DisplaySet
+shiftDisplaySetBy ratio ms = fmap (shiftPackBy ratio ms)
 
-shiftPackBy :: Int -> PGPack -> PGPack
-shiftPackBy ms p = p{header=shiftHeaderBy ms $ header p}
+shiftPackBy :: Rational -> Int -> PGPack -> PGPack
+shiftPackBy ratio ms p = p{header=shiftHeaderBy ratio ms $ header p}
 
-shiftHeaderBy :: Int -> PGHeader -> PGHeader
-shiftHeaderBy ms h = h{pts = pts h + 90*ms}
+shiftHeaderBy :: Rational -> Int -> PGHeader -> PGHeader
+shiftHeaderBy ratio ms h = h{pts = round (ratio * (fromIntegral . pts $ h)) + 90*ms}
 
 serialisePGS :: (Monad m, Applicative m) => Unfold m PGS Word8
 serialisePGS = unfoldEach serialiseDisplaySet $ unfoldEach U.fromList fromSeq
 
 fromSeq :: (Monad m, Applicative m) => Unfold m (Seq a) a
 fromSeq = U.unfoldr $ \s -> case viewl s of
-                              EmptyL -> Nothing
+                              EmptyL   -> Nothing
                               (h :< r) -> Just (h, r)
 
 serialiseDisplaySet :: (Monad m, Applicative m) => Unfold m DisplaySet Word8
-serialiseDisplaySet = lmap (:|> endPGPack) $ unfoldEach serialisePGPack fromSeq 
+serialiseDisplaySet = lmap (:|> endPGPack) $ unfoldEach serialisePGPack fromSeq
 
 serialisePGPack :: (Monad m, Applicative m) => Unfold m PGPack Word8
 serialisePGPack = lmap (\pp -> serialiseHeader (header pp) ++ segments pp) U.fromList
